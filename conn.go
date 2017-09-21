@@ -24,13 +24,10 @@ func Wrap(conn net.Conn, head []byte) *Conn {
 // Read implements the method from net.Conn and first consumes the head before
 // using the underlying connection.
 func (conn *Conn) Read(b []byte) (n int, err error) {
-	nc := copy(b, conn.head)
-	conn.head = conn.head[nc:]
-	if nc >= len(b) {
-		n = nc
-	} else {
-		n, err = conn.Conn.Read(b[nc:])
-		n += nc
+	n = copy(b, conn.head)
+	conn.head = conn.head[n:]
+	if n > 0 {
+		return
 	}
-	return
+	return conn.Conn.Read(b)
 }
