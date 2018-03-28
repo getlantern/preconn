@@ -21,12 +21,13 @@ func TestPreConn(t *testing.T) {
 		return
 	}
 	defer l.Close()
-
 	go func() {
-		conn, err := l.Accept()
-		if err == nil {
-			conn.Write([]byte(text))
-			conn.Close()
+		for {
+			conn, err := l.Accept()
+			if err == nil {
+				conn.Write([]byte(text))
+				conn.Close()
+			}
 		}
 	}()
 
@@ -35,7 +36,6 @@ func TestPreConn(t *testing.T) {
 		return
 	}
 	defer conn.Close()
-
 	pconn := Wrap(conn, []byte(head))
 	var buf bytes.Buffer
 	b := make([]byte, 2)
@@ -49,6 +49,19 @@ func TestPreConn(t *testing.T) {
 		}
 		buf.Write(b[:n])
 	}
+	assert.Equal(t, full, buf.String(), "Read() multiple times should get the full data")
 
-	assert.Equal(t, full, buf.String())
+	conn, err = net.Dial("tcp", l.Addr().String())
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer conn.Close()
+	b = make([]byte, len(full))
+	pconn = Wrap(conn, []byte(head))
+	n, err := pconn.Read(b)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, n, len(b), "Read() should return as many data as possible")
+	assert.Equal(t, full, string(b))
 }
