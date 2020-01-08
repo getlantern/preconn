@@ -26,7 +26,7 @@ func Wrap(conn net.Conn, head []byte) *Conn {
 func (conn *Conn) Read(b []byte) (int, error) {
 	n := copy(b, conn.head)
 	conn.head = conn.head[n:]
-	if n == len(b) {
+	if n > 0 {
 		return n, nil
 	}
 	n1, e := conn.Conn.Read(b[n:])

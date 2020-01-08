@@ -62,6 +62,10 @@ func TestPreConn(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	assert.Equal(t, n, len(b), "Read() should return as many data as possible")
+	assert.Equal(t, head, string(b[:n]), "Read() should return first available data")
+	n, err = pconn.Read(b[n:])
+	if !assert.NoError(t, err) {
+		return
+	}
 	assert.Equal(t, full, string(b))
 }
