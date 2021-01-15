@@ -36,6 +36,9 @@ func (conn *Conn) Read(b []byte) (n int, err error) {
 	// "Read conventionally returns what is available instead of waiting for more."
 	// - https://golang.org/pkg/io/#Reader
 	// Thus if we read off conn.head, we return immediately rather than continuing to conn.Conn.
+	// This helps avoid deadlocks - for example, there may be data in conn.head, but none in
+	// conn.Conn (and the peer may be waiting for a response to the data in conn.head). We may miss
+	// available data in conn.Conn, but the caller can simply call Read again if needed.
 	n, err = conn.head.Read(b)
 	if errors.Is(err, io.EOF) {
 		err = nil
