@@ -6,6 +6,8 @@ import (
 	"net"
 	"testing"
 
+	"github.com/getlantern/nettest"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -68,4 +70,16 @@ func TestPreConn(t *testing.T) {
 		return
 	}
 	assert.Equal(t, full, string(b))
+}
+
+// Use nettest to detect any data races.
+func TestWithNetTest(t *testing.T) {
+	nettest.TestConn(t, func() (net.Conn, net.Conn, func(), error) {
+		c1, c2 := net.Pipe()
+		stop := func() {
+			c1.Close()
+			c2.Close()
+		}
+		return Wrap(c1, []byte{}), c2, stop, nil
+	})
 }

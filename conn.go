@@ -7,11 +7,13 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync"
 )
 
-// Conn is a net.Conn that supports replaying. Reads are not concurrency-safe.
+// Conn is a net.Conn that supports replaying.
 type Conn struct {
 	net.Conn
+	mu           sync.Mutex
 	head         io.Reader
 	consumedHead bool
 }
@@ -24,12 +26,18 @@ func Wrap(conn net.Conn, head []byte) *Conn {
 
 // WrapReader wraps the supplied conn, reading from 'head' first.
 func WrapReader(conn net.Conn, head io.Reader) *Conn {
-	return &Conn{conn, head, false}
+	return &Conn{conn, sync.Mutex{}, head, false}
 }
 
 // Read implements the method from net.Conn and first consumes the head before
 // using the underlying connection.
 func (conn *Conn) Read(b []byte) (n int, err error) {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	return conn.readNoLocking(b)
+}
+
+func (conn *Conn) readNoLocking(b []byte) (n int, err error) {
 	if conn.consumedHead {
 		return conn.Conn.Read(b)
 	}
@@ -44,7 +52,7 @@ func (conn *Conn) Read(b []byte) (n int, err error) {
 		err = nil
 		conn.consumedHead = true
 		if n == 0 {
-			return conn.Read(b)
+			return conn.readNoLocking(b)
 		}
 	}
 	return
