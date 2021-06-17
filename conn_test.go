@@ -2,14 +2,13 @@ package preconn
 
 import (
 	"bytes"
-	"crypto/rand"
 	"io"
 	"net"
-	"sync"
 	"testing"
 
+	"github.com/getlantern/nettest"
+
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -73,32 +72,14 @@ func TestPreConn(t *testing.T) {
 	assert.Equal(t, full, string(b))
 }
 
-// The intent of this test is to expose data races. Run with -race.
-func TestConcurrentReads(t *testing.T) {
-	const parallelism = 10
-
-	a, b := net.Pipe()
-	a = Wrap(a, []byte("hello from c2"))
-	defer a.Close()
-	defer b.Close()
-
-	go io.Copy(b, rand.Reader)
-
-	wg := new(sync.WaitGroup)
-	errs := make(chan error, parallelism)
-	for i := 0; i < parallelism; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			buf := make([]byte, 1024)
-			_, err := a.Read(buf)
-			errs <- err
-		}()
-	}
-	wg.Wait()
-	close(errs)
-
-	for err := range errs {
-		require.NoError(t, err)
-	}
+// Use nettest to detect any data races.
+func TestWithNetTest(t *testing.T) {
+	nettest.TestConn(t, func() (net.Conn, net.Conn, func(), error) {
+		c1, c2 := net.Pipe()
+		stop := func() {
+			c1.Close()
+			c2.Close()
+		}
+		return Wrap(c1, []byte{}), c2, stop, nil
+	})
 }
